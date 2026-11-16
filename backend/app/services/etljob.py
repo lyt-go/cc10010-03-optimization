@@ -40,9 +40,12 @@ class EtljobService:
         rows = store.rows(MODULE)
         entry = {"id": max((int(row.get("id", 0)) for row in rows), default=0) + 1}
         entry.update({field: values.get(field) for field in REQUIRED_FIELDS})
+        entry["目标数据表"] = values.get("目标数据表") or ""
         entry["status"] = STATUS_ORDER[0]
         entry["pending"] = True
         entry["abnormal"] = False
+        entry["作业版本"] = str(values.get("作业版本") or "v1.0")
+        entry["当前轮次"] = 0
         rows.append(entry)
         return entry, []
 

@@ -19,3 +19,37 @@ export async function fetchJson<T>(path: string): Promise<T> {
   }
   return (await response.json()) as T
 }
+
+/** 带超时与重试的下载：超时或失败自动重试，最终成功才落盘，失败时抛出可读错误。 */
+export async function downloadWithRetry(
+  path: string,
+  filename: string,
+  options: { timeoutMs?: number; retries?: number } = {},
+): Promise<void> {
+  const { timeoutMs = 10000, retries = 2 } = options
+  let lastError: unknown = null
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
+    try {
+      const response = await request(path, { signal: controller.signal })
+      if (!response.ok) {
+        throw new Error(`下载返回 ${response.status}`)
+      }
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = filename
+      anchor.click()
+      URL.revokeObjectURL(url)
+      return
+    } catch (error) {
+      lastError = error
+    } finally {
+      clearTimeout(timer)
+    }
+  }
+  const detail = lastError instanceof Error ? lastError.message : '下载失败'
+  throw new Error(`下载超时或失败，已重试 ${retries} 次：${detail}`)
+}
